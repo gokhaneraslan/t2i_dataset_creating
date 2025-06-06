@@ -236,18 +236,6 @@ custom_style_caption = "your_style_name"
 - Consistent style and terminology
 - Accurate visual descriptions
 
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit:
-- Bug reports and feature requests
-- Code improvements and optimizations
-- Additional model integrations
-- Documentation improvements
-
-## 📄 License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
 ## 🙏 Acknowledgments
 
 - Hugging Face Transformers library

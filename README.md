@@ -31,8 +31,8 @@ pip install bitsandbytes accelerate
 ### Clone Repository
 
 ```bash
-git clone https://github.com/yourusername/text-to-image-dataset-toolkit.git
-cd text-to-image-dataset-toolkit
+git clone https://github.com/gokhaneraslan/text_to_image_dataset_toolkit.git
+cd text_to_image_dataset_toolkit
 ```
 
 ## 🛠️ Scripts Overview
@@ -150,7 +150,7 @@ python advanced_captioner.py
 ### 3. Dataset Structure
 Your final dataset should look like:
 ```
-dataset/
+MyImgDataset/
 ├── images/
 │   ├── dataset_000001.jpg
 │   ├── dataset_000002.jpg

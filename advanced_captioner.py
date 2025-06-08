@@ -248,7 +248,7 @@ if __name__ == "__main__":
     GEMMA_MODEL_ID = "google/gemma-3-12b-it"
     IMAGE_INPUT_FOLDER = "/content/MyImgDataset/images"
     METADATA_OUTPUT_FILE = "/content/MyImgDataset/metadata.jsonl"
-    custom_style_caption = "gaya_style"
+    custom_style_caption = "your_style"
 
     gemma_model, gemma_processor = initialize_gemma_model(GEMMA_MODEL_ID)
 

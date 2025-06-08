@@ -228,7 +228,7 @@ def create_metadata_jsonl(image_folder, output_file, gemma_model, gemma_processo
                 
                 print(f"  Description (took {elapsed_time:.2f}s): {description_text[:150]}...")
                 
-                description_text = custom_style_caption + " " + description_text
+                description_text = custom_style_caption + ", " + description_text
                 
                 json_record = {"file_name": image_filename, "text": description_text}
                 f_jsonl.write(json.dumps(json_record, ensure_ascii=False) + "\n")

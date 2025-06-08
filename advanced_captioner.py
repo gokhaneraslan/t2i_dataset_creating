@@ -6,38 +6,43 @@ import os
 import torch
 
 
-PROMPT_CONFIG = {
-    "detailed_art_analyst": {
-        "role": """You are an expert art and image analyst.
-        Your task is to provide a comprehensive description of the visual elements in the presented image.
-        Focus on the main subject(s), their attributes, the overall composition, dominant colors and color harmonies, lighting, and prominent stylistic characteristics (e.g., art movement, rendering style, brushwork, line quality).
-        The description should be a coherent narrative.
-        Do not add any text before or after the description itself.""",
-        "instructions": """Generate a detailed, a few sentence description of the provided image, aiming for a length suitable for up to 200 tokens.
-        **Begin your description directly with the most prominent subject, action, or atmospheric element. Avoid starting with phrases like "The image depicts...", "This scene shows...", or similar introductory statements.**
-        Your description should thoroughly cover the following aspects:
-        1.  **Main Subject(s) & Scene:** ...
-        2.  **Color Palette & Lighting:** ...
-        3.  **Composition & Form (Lines):** ...
-        4.  **Artistic Style & Technique:** ...
+def _detailed_art_analyst(special_style):
+    
+    role = "You are an expert AI captioner for a critical machine learning project."
+    
+    instructions = f"""Your task is to generate captions for a text-to-image LoRA training dataset. The goal is to teach the model a specific art style using the trigger word {special_style}.
+            Your primary goal is to create a caption that is concise yet descriptive. It will be processed by a T5 tokenizer and MUST NOT exceed 224 tokens. This means every word counts.
+            Strict Rules:
+            Mandatory Format: Every caption MUST begin with {special_style}, (the trigger word, a comma, and a space). This separates the style from the content.
+            Be Objective & Factual: Describe the literal content of the image: subjects, actions, environment, and key objects.
+            Example: Instead of "a hero," say a man in a red and blue suit. Instead of "a monster," say a large, orange creature with sharp teeth.
+            Prioritize Key Information: Since token space is limited, focus on the most important elements first. Who is in the image? What are they doing? Where are they?
+            Strict Restrictions (What to AVOID):
+            NO Style Words: NEVER use words that describe the art style itself (e.g., comic, cartoon, illustration, art, cel-shaded, vibrant). The {special_style} token handles all of that. Including them will confuse the model.
+            NO Subjective Words: NEVER use subjective or emotional words (e.g., beautiful, amazing, dramatic, cool). The description must be a neutral, factual inventory.
+            Example of a PERFECT caption (concise and factual):
+            {special_style}, a young woman with curly hair and goggles operates a futuristic control panel in a dark room.
+            Example of a BAD caption (too long and breaks rules):
+            {special_style}, this is a beautiful and dramatic comic book style illustration of a young woman with amazing curly hair who is looking at a cool futuristic control panel.
+            Now, adhering to all these rules, generate a concise and descriptive caption for the provided image. Ensure the final output is well under the 224-token limit for a T5 tokenizer.
+        """
+    return role, instructions
+        
+def _concise_captioner():
+    role = f"""You are an image captioning assistant.
+            Your task is to create a brief, factual caption for the image, highlighting only the most essential visual elements.
+            The caption must be a single, short sentence.
+            Do not add any text before or after the caption itself.
+        """,
+    instructions = """Generate a very concise, single-sentence caption for the provided image.
+            Focus on the main subject, its key attributes, and the immediate context or action.
+            The caption should be suitable for a dataset where captions are typically under 200 tokens.
+            Absolutely no conversational fillers, titles, or section headers.
+            Output only the caption itself.
+        """
+    return role, instructions
 
-        Combine these elements into a flowing, descriptive narrative.
-        The caption should be suitable for a dataset where captions are typically under 200 tokens.
-        Absolutely no conversational fillers, titles, external interpretations, or bullet points.
-        Output only the descriptive text itself."""
-    },
-    "concise_captioner": {
-        "role": """You are an image captioning assistant.
-        Your task is to create a brief, factual caption for the image, highlighting only the most essential visual elements.
-        The caption must be a single, short sentence.
-        Do not add any text before or after the caption itself.""",
-        "instructions": """Generate a very concise, single-sentence caption for the provided image.
-        Focus on the main subject, its key attributes, and the immediate context or action.
-        The caption should be suitable for a dataset where captions are typically under 200 tokens.
-        Absolutely no conversational fillers, titles, or section headers.
-        Output only the caption itself."""
-    }
-}
+
 
 def initialize_gemma_model(model_id="google/gemma-3-12b-it"):
     """
@@ -74,18 +79,16 @@ def initialize_gemma_model(model_id="google/gemma-3-12b-it"):
         print("Please ensure you have enough GPU memory and a working internet connection for the first download.")
         return None, None
 
-def generate_gemma_description(image_path, model, processor, prompt_style="concise_captioner", max_new_tokens=220):
+def generate_gemma_description(image_path, model, processor, prompt_style="concise_captioner", max_new_tokens=220, custom_style_caption="comic_style"):
     """
     Generates a detailed description for a given image using the Gemma model.
     """
     
-    active_prompt = PROMPT_CONFIG.get(prompt_style)
-    if not active_prompt:
-        print(f"Warning: Unknown prompt style '{prompt_style}'. Using default style.")
-        active_prompt = PROMPT_CONFIG["concise_captioner"]
-
-    model_role = active_prompt["role"]
-    model_instructions = active_prompt["instructions"]
+    if prompt_style == "concise_captioner":
+        model_role, model_instructions = _concise_captioner()
+        
+    else:
+        model_role, model_instructions = _detailed_art_analyst(special_style=custom_style_caption)
 
     try:
         image = Image.open(image_path)
@@ -150,7 +153,7 @@ def generate_gemma_description(image_path, model, processor, prompt_style="conci
         print(f"Error during description generation for {image_path}: {e}")
         return None
 
-def create_metadata_jsonl(image_folder, output_file, gemma_model, gemma_processor, custom_style_caption):
+def create_metadata_jsonl(image_folder, output_file, gemma_model, gemma_processor, prompt_style, custom_style_caption):
     """
     Generates descriptions for all images in a folder using Gemma and saves them
     to a .jsonl file. Features a resume capability to continue where it left off.
@@ -219,17 +222,21 @@ def create_metadata_jsonl(image_folder, output_file, gemma_model, gemma_processo
             
             print(f"\nProcessing image {i+1}/{total_to_process}: {image_filename} ...")
 
-            description_text = generate_gemma_description(image_path, gemma_model, gemma_processor)
+            description_text = generate_gemma_description(
+                image_path=image_path,
+                model=gemma_model,
+                processor=gemma_processor,
+                prompt_style=prompt_style,
+                max_new_tokens=224,
+                custom_style_caption=custom_style_caption
+            )
 
             end_time = time.time()
             elapsed_time = end_time - start_time
 
             if description_text:
                 
-                print(f"  Description (took {elapsed_time:.2f}s): {description_text[:150]}...")
-                
-                description_text = custom_style_caption + ", " + description_text
-                
+                print(f"  Description (took {elapsed_time:.2f}s): {description_text[:150]}...")               
                 json_record = {"file_name": image_filename, "text": description_text}
                 f_jsonl.write(json.dumps(json_record, ensure_ascii=False) + "\n")
                 f_jsonl.flush()
@@ -248,6 +255,7 @@ if __name__ == "__main__":
     GEMMA_MODEL_ID = "google/gemma-3-12b-it"
     IMAGE_INPUT_FOLDER = "/content/MyImgDataset/images"
     METADATA_OUTPUT_FILE = "/content/MyImgDataset/metadata.jsonl"
+    prompt_style = "detailed_art_analyst" # or concise_captioner
     custom_style_caption = "your_style"
 
     gemma_model, gemma_processor = initialize_gemma_model(GEMMA_MODEL_ID)
@@ -255,11 +263,12 @@ if __name__ == "__main__":
     if gemma_model and gemma_processor:
         
         create_metadata_jsonl(
-            IMAGE_INPUT_FOLDER, 
-            METADATA_OUTPUT_FILE, 
-            gemma_model, 
-            gemma_processor, 
-            custom_style_caption
+            image_folder=IMAGE_INPUT_FOLDER, 
+            output_file=METADATA_OUTPUT_FILE, 
+            gemma_model=gemma_model, 
+            gemma_processor=gemma_processor,
+            prompt_style=prompt_style,
+            custom_style_caption=custom_style_caption
         )
         
     else:
